@@ -1,11 +1,11 @@
 
 # placing-consecutive-numbers-in-boxes-puzzle
 
-A colleague of mine teaches math and gave her AP Calculus BC students a fun puzzle. Students had to place numbers in a certain number of boxes. The first number to be placed is 1, then 2, etc. Numbers cannot be skipped; they must be consecutive. The goal is to place the most numbers possible under the following constraints...
+A colleague of mine teaches math and gave her AP Calculus BC students a fun optimization puzzle. Students had to place numbers in a certain number of boxes. The first number to be placed is 1, then 2, etc. Numbers cannot be skipped; they must be consecutive. The goal is to place the most numbers possible under the following constraints...
 * Rule \#1: no number in a box can be the sum of any set of other numbers in the box
 * Rule \#2: no number in a box can be the double of any other number in the box
 
-This problem reminds me of the Collatz conjecture made into a game, but without its extreme simplicity. Like the Collatz conjecture, you can modify the rules to make new puzzles. Modifying my code to handle these new rules shouldn't be extremely difficult.
+This problem reminds me of the Collatz conjecture made into a game, but with more complex rules. Like the Collatz conjecture, you can modify the rules to make new puzzles. Modifying my code to handle these new rules shouldn't be extremely difficult.
 
 My colleague got the puzzle from a friend, and I cannot find a similar puzzle, but it feels to be a mixture of the following and other things...
 * [https://en.wikipedia.org/wiki/Bin_packing_problem](https://en.wikipedia.org/wiki/Bin_packing_problem)
@@ -56,8 +56,8 @@ Four boxes is an interesting problem to do with code. The rare advanced high sch
  [4, 6, 7, 9, 28, 30, 31, 33]
  [13 - 25]
 ```
-We now see a pattern arising. At least one of the optimal solutions as the final box be what I will call a *counting box*. The 13 - 25 is all consecutive numbers starting at 13 and ending at 25. The final number of the counting box is 2 * start - 1,
-and all numbers between start and final are allowed. 2 * start is the first to be excluded (by Rule \#2). By avoiding small numbers less than start, this counting box can obey the constraints and place a large number of numbers. The larger the starting number, the larger the number of numbers in the counting box.
+We now see a pattern arising. At least one of the optimal solutions has the final box be what I will call a *counting box*. The 13 - 25 is all consecutive numbers starting at 13 and ending at 25. The final number in the counting box is 2 * start - 1,
+and all numbers between start and the final number are allowed. 2 * start is the first to be excluded (by Rule \#2). By avoiding small numbers less than start, this counting box can obey the constraints and place a large number of numbers. The larger the starting number, the larger the number of numbers in the counting box.
 
 Studying these patterns and trying to solve the problem for more than 4 boxes is the goal of my codes. This is a strange goal in that this box problem is not known by the world, so I don't know how anyone will ever usefully find this code, but it is a great problem requiring very fast code and mathematical proofs.
 
@@ -66,7 +66,7 @@ Studying these patterns and trying to solve the problem for more than 4 boxes is
 
 # 5 boxes with boxes.cpp
 
-See the top of boxes.cpp for instructions on how to run the file. It has been highly optimized for speed. Although 4 boxes takes much less than 1 second, 5 boxes takes a couple days to finish its recursive (brute force) search on a single CPU core.
+See the top of boxes.cpp for instructions on how to run the file. It has been highly optimized for speed. Although 4 boxes takes much less than 1 second, 5 boxes takes a couple days to finish its recursive (brute force) search on a single CPU core. It would take years for code that is not optimized.
 
 I ran boxes.cpp with the proper lines uncommented so that it printed all 66 states that can result at a recursion depth of 6, meaning that there are 66 ways of placing the first 6 numbers. This runtime was 0 milliseconds.
 
@@ -78,12 +78,12 @@ Using these 66 states as command-line arguments, I employed 66 CPU cores (on 8 c
  [13 - 25]
  [37 - 73]
 ```
-We can notice that the first four boxes are filled the same as if they were the only 4 boxes. Because the solution with 4 boxes, after placing 36, had 86 be the next number that could be placed, I was pretty confident that the above would be the best solution, but now this 73 has been proven to be the unique best! In hindsight, I should have started running it in the printing-repeats mode, but also initializing *best* to 73 because 73 could obviously be obtained by just adding a counting box starting at 37.
+We can notice that the first four boxes are filled as if they were the only 4 boxes. Because the solution with 4 boxes, after placing 36, had 86 be the next number that could be placed, I was pretty confident that the above would be the best solution, but now this 73 has been proven to be the unique best! In hindsight, I should have started running it in the printing-repeats mode, but also initializing *best* to 73 because 73 could obviously be obtained by just adding a counting box starting at 37.
 
 I obtained my wonderful runtimes by using pruning and efficient data structures. Pruning is removing branches of the recursion tree as early as possible, which can exponentially speed up the code at the cost of a linear slowdown. Good data structures can combined speed up the code by a factor of more than 100 times!
 
 I do two types of pruning: initial and non-initial.
-* The initial pruning makes sure that "shuffling the boxes" never occurs so that trivially repeated solutions do not appear. Basically, when trying to place a number in a box, the code does not allow that number to placed in any other empty box by returning after the first empty box.
+* The initial pruning makes sure that "shuffling the boxes" never occurs so that trivially repeated solutions do not appear. Basically, when trying to place a number in a box, the code does not allow that number to placed in any other empty box by having the recursive function return after the first empty box.
 * The non-initial pruning looks at all numbers between the current and the current best, and, if any are currently known to be unplaceable, prune!
 
 I have three main data structures...
@@ -98,10 +98,10 @@ where
   sumsLength = ( maxSteps / 2^6 ) + 1
 ```
 For 5 boxes, boxNum is 5, so maxSteps = 96 and sumsLength = 2 .
-Clearly, *maxSteps* does not need to be this large since 73 is the best for 5 boxes, but *maxSteps* does not affect the speed much and the formula seems generally safe. If not safe, the code will let you know that you need to increase *maxSteps*.
-* *possibilities* is indexed by the integer that could be placed, and each of the bits of possibilities[n] represents a box. If the bit is 1, we have not yet ruled out placing that integer in that box. For 5 boxes, only 5 of the 8 bits are used. See my variable called *mask* to see how bits are individually accessed. The code could probably be simplified with std::bitset, though I wanted more general code that could be used for more than 64 bits, especially for *sums*, so I do bit operations by hand. *possibilities* is shallow copied at each step of recursion. Using *sums* only and not *possibilities* by recalculating Rule \#2 is slower than using *possibilities*.
-* *sums* records the current list of sums (out to *maxSteps*) of all combinations of sums of integers in each box. This is useful because, when adding the next integer to a box, you also add it to each integer in *sums* rather than having to calculate all combinations again. Each bit corresponds to a sum, where a bit being 1 means that the sum can be obtained. *sums* uses the largest unsigned int, which is only 64 bits, which could only hold sums up to 63 (since the 0th bit of the first 64-bit integer is ignored), so, to store each of the *maxSteps* sums for 5 boxes, we need 2 uint64\_t integers, which is why sumsLength is 2 for 5 boxes. For example, for 5 boxes, let's look at the following box=0: [1,40,60]. Then, the sums would be 1,40,41,60,61,100,101, so sums[0] would become 0011000000000000000000110000000000000000000000000000000000000010, and the next uint64\_t could be all zeros because the 100 and 101 are larger than *maxSteps*. Note that *possibilities* is accessed via step then box, but *sums* is accessed via box then step. This is to make the code have the smallest possible runtime due to the different ways that these data structures are accessed and modified. I found that *contiguous* data in arrays was faster than worrying about using pointers for shallow copying.
-* *boxes* is a single global array of length *maxSteps* + 1 made of uint8\_t integers that store the box in which each integer is placed (for 5 boxes, values in *boxes* would be 0 through 4). Then, as long as you never print beyond where you are currently trying to place a number, there is no need for any copying of this data because the next branch of the recursion can just start overwriting the data as it traverses the new branch.
+Clearly, *maxSteps* does not need to be this large since 73 is the best for 5 boxes, but *maxSteps* does not hugely affect the speed, and the formula seems generally safe. If not safe, the code will let you know that you need to increase *maxSteps*.
+* *possibilities* is indexed by the integer that could be placed, and each of the bits of possibilities[n] represents a box. If the bit is 1, we have not yet ruled out placing that integer in that box. For 5 boxes, only 5 of the 8 bits are used. See my variable called *mask* to see how bits are individually accessed. The code could probably be simplified with std::bitset, though I wanted more general code that could be used for more than 64 bits, especially for *sums*, so I do bit operations by hand. *possibilities* is "shallow copied" at each step of recursion. Using *sums* only and not *possibilities* by recalculating Rule \#2 is slower than using *possibilities*.
+* *sums* records the current list of sums (out to *maxSteps*) of all combinations of sums of integers in each box. When adding the next integer to a box, *sums* can be efficiently updated by adding it to each integer in *sums* rather than having to calculate all combinations again. Each bit corresponds to a sum, where a bit being 1 means that the sum can be obtained. *sums* uses the largest unsigned int, which is only 64 bits, which could only hold sums up to 63 (since the 0th bit of the first 64-bit integer is ignored), so, to store each of the *maxSteps* sums for 5 boxes, we need 2 uint64\_t integers, which is why sumsLength is 2 for 5 boxes. For example, for 5 boxes, let's look at the following box=0: [1,40,60]. Then, the sums would be 1,40,41,60,61,100,101, so sums[0] would become 0011000000000000000000110000000000000000000000000000000000000010, and the second uint64\_t could be all zeros because the 100 and 101 are larger than *maxSteps*. Note that *possibilities* is accessed via step then box, but *sums* is accessed via box then step. This is to make the code have the smallest possible runtime due to the different ways that these data structures are accessed and modified. I found that *contiguous* data in arrays was faster than worrying about using pointers for shallow copying.
+* *boxes* is a single global array of length *maxSteps* + 1 made of uint8\_t integers that store the box in which each integer is placed (for 5 boxes, values in *boxes* would be 0 through 4). Then, as long as you never print beyond where you are currently trying to place a number, there is no need for any copying of this data because the next branch of the recursion can just start overwriting the data as it traverses the new branch. Note that boxes[0] stores the number of boxes used and is used for initial pruning.
 
 
 
@@ -112,7 +112,7 @@ Clearly, *maxSteps* does not need to be this large since 73 is the best for 5 bo
 
 For 6 boxes, boxes.cpp takes almost a minute for progress to be made at a recursion depth of 36. This will take at least 2^36 minutes, which is over 100,000 years on a single CPU core. We need a better way! That way is having the code handle counting boxes differently.
 
-6 boxes can be run using boxesCounting.cpp in much less than an hour if the final two boxes are assumed to be counting boxes whose min countStart is 27...
+6 boxes can be run using boxesCounting.cpp in much less than an hour if the final two boxes are assumed to be counting boxes whose minimum countStart is 27...
 ```
 bool isCounting[boxNumAll]         = {false, false, false, false, true, true};
 const uint32_t minStart[boxNumAll] = {    0,     0,     0,     0,   27,    0};
@@ -146,7 +146,7 @@ Results are that there are three ways to get the best of 156...
 [74 - 147]
 ```
 
-For more boxes, counting boxes can begin being added to again. For a counting box with countStart = 13, 221 is the firstAllowed, and 247 is the finalExcluded. That is, once 221 is reached, it could be placed in the box, and, once 248 is reached, any number can be placed in the box.
+For an even larger number of boxes, counting boxes can have numbers placed into them after the initial sequence. For a counting box with countStart = 13, 221 is the firstAllowed, and 247 is the finalExcluded. That is, once 221 is reached, it could be placed in the box, and, once 247 is reached, any larger number can be placed in the box.
 
 For countStart > 4...
 ```
@@ -165,7 +165,7 @@ so
   firstAllowed = (3*countStart*countStart - 5*countStart)/2
 ```
 
-Let's look at an example when countStart=5.
+Let's look at an example when countStart=5.  
 1 number gives...
 ```
    5
@@ -203,7 +203,7 @@ Adding 4 numbers gives...
    6 + 7 + 8 + 9 = 30
 ```
 We see that 25 and 10 cannot be achieved as sums. 10 is still excluded by the doubling rule (it is double 5), so firstAllowed = 25, which agrees with the formula.
-The important thing to notice from this example is that there is a gap size between groups of sequentially excluded numbers. What I will later call gapSize(1) is 2 because 11-9=2, and what I will later call gapSize(3) is also 2 because 26-24=2. For different countStart values, these gap sizes may vary, and there will be more of them (we will see that gapSize will need to go from 1 to countStart-2).
+The important thing to notice from this example is that there is a gap size between groups of sequentially excluded numbers. What I will later call gapSize(1) is 2 because 11-9=2, and what I will later call gapSize(3) is also 2 because 26-24=2. For different countStart values, these gap sizes may vary, and there will be more of them. We will see that, for gapSize(i), i will need to go from 1 to countStart-2.
 
 Let's do the proof for any countStart > 4 keeping in mind the example to help us understand the proof.
 For  finalNum = 2\*countStart - 1, we can derive the following...
@@ -214,11 +214,11 @@ For  finalNum = 2\*countStart - 1, we can derive the following...
                = (1 + i) (2 countStart + i) / 2
 ```
 where sumEnd(i) is the sum of the last i numbers in the counting box, and sumStart(i) is the sum of the smallest i+1 things in the counting box.
-If the following gap size is 1 or less, you can keep excluding numbers. If it is 2 or more, you cannot exclude some numbers.
+If the following gap size is 1 or less, you can keep sequentially excluding numbers. If it is 2 or more, you cannot exclude some numbers.
 ```
    gapSize(i) = sumStart(i) - sumEnd(i) = i^2 + i + (1-i) countStart
 ```
-For i=1, we get 2, which corresponds to  2\*countStart, which is always excluded by the doubling rule. We now have to prove that all larger i values have gaps less than 2 until the i where firstAllowed occurs.
+For i=1, we get a gap size of 2, which corresponds to  2\*countStart, which is always excluded by the doubling rule. We now have to prove that all larger i values have gaps less than 2 until the i where firstAllowed occurs.
 Setting  gapSize(i)  equal to 2 gives two solutions: i = 1 and i = countStart - 2
 The derivative of  gapSize(i)  at i = 1 is  3 - countStart, which is negative for countStart > 4, so we can keep excluding above  2\*countStart  until i = countStart - 2.
 For  i = countStart - 2, we can calculate sumEnd(i)
@@ -243,7 +243,7 @@ Immediately above finalExcluded, you can place a consecutive band of numbers of 
 
 The best I have found...
 ```
-boxes  __best fount__
+boxes  __best found__
  7        328
  8        660
  9        1328
@@ -259,11 +259,11 @@ As the number of boxes increases, my certainty that it is the actual best decrea
 
 One of the solutions for 16 boxes that gives 175340 has the following form for its final boxes...
 ```
-[13 - 25,314 - 326,5391 - 5403,87469 - 87481]
-[37 - 73,2658 - 2694,174964 - 175000]
-[74 - 147,10808 - 10881]
-[157 - 313,43577 - 43733]
-[329 - 657,175001 - 175329]
+[13 - 25, 314 - 326, 5391 - 5403, 87469 - 87481]
+[37 - 73, 2658 - 2694, 174964 - 175000]
+[74 - 147, 10808 - 10881]
+[157 - 313, 43577 - 43733]
+[329 - 657, 175001 - 175329]
 [659 - 1317]
 [1329 - 2657]
 [2695 - 5389]
@@ -290,7 +290,7 @@ Note that the 156 and 325 are not the same countStart values as with other numbe
 
 # something interesting
 
-The patterns formed when printing the boxes in which integers are placed are surprising!
+The patterns formed when printing the boxes in which the integers are placed are surprising!
 ```
 1 box:   0
 2 boxes: 0110
