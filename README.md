@@ -83,8 +83,8 @@ We can notice that the first four boxes are filled as if they were the only 4 bo
 I obtained my wonderful runtimes by using pruning and efficient data structures. Pruning is removing branches of the recursion tree as early as possible, which can exponentially speed up the code at the cost of a linear slowdown. Good data structures can combined speed up the code by a factor of more than 100 times!
 
 I do two types of pruning: initial and non-initial.
-* The initial pruning makes sure that "shuffling the boxes" never occurs so that trivially repeated solutions do not appear. Basically, when trying to place a number in a box, the code does not allow that number to placed in any other empty box by having the recursive function return after the first empty box.
-* The non-initial pruning looks at all numbers between the current and the current best, and, if any are currently known to be unplaceable, prune!
+* The initial pruning makes sure that "shuffling the boxes" never occurs so that trivially repeated solutions do not appear. Basically, when trying to place a number in a box, the code does not allow that number to be placed in more than one empty box by having the recursive function return after the first empty box.
+* The non-initial pruning looks at all numbers between the current and a bit after the current best, and, if any are currently known to be unplaceable, prune!
 
 I have three main data structures...
 ```
@@ -99,8 +99,8 @@ where
 ```
 For 5 boxes, boxNum is 5, so maxSteps = 96 and sumsLength = 2 .
 Clearly, *maxSteps* does not need to be this large since 73 is the best for 5 boxes, but *maxSteps* does not hugely affect the speed, and the formula seems generally safe. If not safe, the code will let you know that you need to increase *maxSteps*.
-* *possibilities* is indexed by the integer that could be placed, and each of the bits of possibilities[n] represents a box. If the bit is 1, we have not yet ruled out placing that integer in that box. For 5 boxes, only 5 of the 8 bits are used. See my variable called *mask* to see how bits are individually accessed. The code could probably be simplified with std::bitset, though I wanted more general code that could be used for more than 64 bits, especially for *sums*, so I do bit operations by hand. *possibilities* is "shallow copied" at each step of recursion. Using *sums* only and not *possibilities* by recalculating Rule \#2 is slower than using *possibilities*.
-* *sums* records the current list of sums (out to *maxSteps*) of all combinations of sums of integers in each box. When adding the next integer to a box, *sums* can be efficiently updated by adding it to each integer in *sums* rather than having to calculate all combinations again. Each bit corresponds to a sum, where a bit being 1 means that the sum can be obtained. *sums* uses the largest unsigned int, which is only 64 bits, which could only hold sums up to 63 (since the 0th bit of the first 64-bit integer is ignored), so, to store each of the *maxSteps* sums for 5 boxes, we need 2 uint64\_t integers, which is why sumsLength is 2 for 5 boxes. For example, for 5 boxes, let's look at the following box=0: [1,40,60]. Then, the sums would be 1,40,41,60,61,100,101, so sums[0] would become 0011000000000000000000110000000000000000000000000000000000000010, and the second uint64\_t could be all zeros because the 100 and 101 are larger than *maxSteps*. Note that *possibilities* is accessed via step then box, but *sums* is accessed via box then step. This is to make the code have the smallest possible runtime due to the different ways that these data structures are accessed and modified. I found that *contiguous* data in arrays was faster than worrying about using pointers for shallow copying.
+* *possibilities* is indexed by the integer that could be placed, and each of the bits of possibilities[n] represents a box. If the bit is 1, we have not yet ruled out placing that integer in that box. For 5 boxes, only 5 of the 8 bits are used. See my variable called *mask* to see how bits are individually accessed. The code could probably be simplified with std::bitset, though I wanted more general code that could be used for more than 64 bits, especially for *sums*, so I do bit operations by hand. The size of *possibilities* is "reduced" at each step of recursion by only writing to indices larger than the current integer being added, which has a faster runtime than actually reducing the size of *possibilities* each step. Using *sums* only and not *possibilities* by recalculating Rule \#2 is slower than using *possibilities*.
+* *sums* records the current list of sums (out to *maxSteps*) of all combinations of sums of integers in each box. Each bit corresponds to a sum, where a bit being 1 means that the sum can be obtained. *sums* uses the largest unsigned int, which is only 64 bits, which could only hold sums up to 63 (since the 0th bit of the first 64-bit integer is ignored), so, to store each of the *maxSteps* sums for 5 boxes, we need 2 uint64\_t integers, which is why sumsLength is 2 for 5 boxes. For example, for 5 boxes, let's look at the following box=0: [1,40,60]. Then, the sums would be 1,40,41,60,61,100,101, so sums[0][0] would become 0011000000000000000000110000000000000000000000000000000000000010, and sums[0][1] could be all zeros because the 100 and 101 are larger than *maxSteps*. When adding the next integer to a box, *sums* can be efficiently updated by adding it to each integer in *sums* rather than having to calculate all combinations again, and doing these additions can be done in bulk via simple bitshift operations. Note that *possibilities* is accessed via step then box, but *sums* is accessed via box then step. This is to make the code have the smallest possible runtime due to the different ways that these data structures are accessed and modified. I found that *contiguous* data in arrays was faster than worrying about using pointers for shallow copying.
 * *boxes* is a single global array of length *maxSteps* + 1 made of uint8\_t integers that store the box in which each integer is placed (for 5 boxes, values in *boxes* would be 0 through 4). Then, as long as you never print beyond where you are currently trying to place a number, there is no need for any copying of this data because the next branch of the recursion can just start overwriting the data as it traverses the new branch. Note that boxes[0] stores the number of boxes used and is used for initial pruning.
 
 
@@ -241,7 +241,7 @@ After firstAllowed, there is consecutive band of allowed numbers of length count
 This exists immediately below finalExcluded.
 Immediately above finalExcluded, you can place a consecutive band of numbers of length countStart.
 
-The best I have found...
+For more than 6 boxes, the best I have found are...
 ```
 boxes  __best found__
  7        328
@@ -273,9 +273,9 @@ One of the solutions for 16 boxes that gives 175340 has the following form for i
 [43734 - 87467]
 [87482 - 174963]
 ```
-To achieve this, I set the (sometimes bad) assumption in the code to always have subsequent filling of a counting box be the length of the original countStart for that box.
+To achieve this, I set the (sometimes bad) assumption in the code to always have subsequent filling of a counting box be the length of the original countStart for that box. This assumption can be turned off, but then the runtime is larger.
 
-The optimal countStart values can change. For 8 boxes, the best solutions I found had the following final boxes...
+The optimal countStart values can change as *boxNum* changes. For 8 boxes, the best solutions I found had the following final boxes...
 ```
 [13 - 25, 312 - 324]
 [37 - 73]

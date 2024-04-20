@@ -44,6 +44,7 @@
    - Use an array of pointers to std::array so that only a small part of the array can be deep copied.
      This slows things down for small boxNumAll, but, if larger,
      data structures are quite huge and should probably be on the heap anyway?
+   - Make boxes[] global like in boxes.cpp
 */
 
 
@@ -167,16 +168,27 @@ void subsequentFill(uint64_t sumsNew[sumsLength], possType possibilitiesNew[maxS
         if (j <= maxSteps)
           possibilitiesNew[j] &= mask;  // remove from possibilities
 
+        uint64_t nmod = ((uint64_t)n << 58) >> 58;   // 64 - 6 = 58
+        nType ndiv = n >> 6;
+
         // remove sums from possibilitiesNew and update sumsNew
         for (int i=0; i<sumsLength; i++) {         // i represents 64 possible sums
           uint64_t temp = sums[i];
+
+          // Basically, bit shift sums[] by n to get the new sums.
+          // Tricky since sums[] is uint64_t, so sums come in groups of 64
+          if (i + ndiv < sumsLength)
+            sumsNew[i + ndiv] |= (temp << nmod);
+          if (i + ndiv + 1 < sumsLength)
+            sumsNew[i + ndiv + 1] |= (temp >> (64 - nmod));
+
           while(temp) {
             int k = __builtin_ctzll( temp );       // count trailing zeros
             uint32_t j = k + (i << 6) + (uint32_t)n;   // k + (i<<6) is the sum being added to
             if (j > maxSteps)
               goto endloops;
-            possibilitiesNew[j] &= mask;         // remove from possibilities[]
-            sumsNew[j >> 6] |= ((uint64_t) 1 << (j & 0b111111));  // add to sumsNew[]
+            possibilitiesNew[j] &= mask;         // remove from possibilitiesNew[]
+            //sumsNew[j >> 6] |= ((uint64_t)1 << (j & 0b111111));  // add to sumsNew[]
             temp -= ((uint64_t)1 << k);
           }
         }
@@ -229,6 +241,10 @@ void step(possType possibilities[maxSteps+1], uint64_t sums[boxNumAll][sumsLengt
 
   bool putInEmptyBox = false;          // has a previous empty non-counting box had n put inside?
   bool putInEmptyCountingBox = false;  // has a previous empty counting box had n put inside?
+
+  // for updating sums[], assuming that it is uint64_t
+  uint64_t nmod = ((uint64_t)n << 58) >> 58;   // 64 - 6 = 58
+  nType ndiv = n >> 6;
 
   // try to place n in each box
   while(possibilities[n]) {
@@ -470,13 +486,21 @@ void step(possType possibilities[maxSteps+1], uint64_t sums[boxNumAll][sumsLengt
         // remove sums from possibilitiesNew and update sumsNew
         for (int i=0; i<sumsLength; i++) {         // i represents 64 possible sums
           uint64_t temp = sums[box][i];
+
+          // Basically, bit shift sums[] by n to get the new sums.
+          // Tricky since sums[] is uint64_t, so sums come in groups of 64
+          if (i + ndiv < sumsLength)
+            sumsNew[box][i + ndiv] |= (temp << nmod);
+          if (i + ndiv + 1 < sumsLength)
+            sumsNew[box][i + ndiv + 1] |= (temp >> (64 - nmod));
+
           while(temp) {
             int k = __builtin_ctzll( temp );       // count trailing zeros
             uint32_t j = k + (i << 6) + (uint32_t)n;   // k + (i<<6) is the sum being added to
             if (j > maxSteps)
               goto endloops;
-            possibilitiesNew[j] &= mask;         // remove from possibilities[]
-            sumsNew[box][j >> 6] |= ((uint64_t) 1 << (j & 0b111111));  // add to sumsNew[]
+            possibilitiesNew[j] &= mask;         // remove from possibilitiesNew[]
+            //sumsNew[box][j >> 6] |= ((uint64_t)1 << (j & 0b111111));  // add to sumsNew[]
             temp -= ((uint64_t)1 << k);
           }
         }
@@ -526,9 +550,9 @@ int main() {
   possType possibilities[maxSteps+1];   // possibilities[0] is never used
   for (int i=1; i<=maxSteps; i++) {
     if (i < 5)             // firstAllowed formula is not true for n<5
-      possibilities[i] = (1 << boxNum0) - 1;   // each bit is a box
+      possibilities[i] = ((possType)1 << boxNum0) - (possType)1;   // each bit is a box
     else
-      possibilities[i] = (1 << boxNumAll) - 1;   // each bit is a box
+      possibilities[i] = ((possType)1 << boxNumAll) - (possType)1;   // each bit is a box
   }
   for (int box=0; box<boxNumAll; box++) {   // handle minStart[]
     if (isCounting[box]) {
