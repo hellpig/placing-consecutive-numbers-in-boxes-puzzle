@@ -27,7 +27,7 @@
   For boxNumAll=15...
     ulimit -s 65532
   which is the highest macOS will go. Linux can keep going! For boxNumAll=16, 128 MiB works...
-    ulimit -s 131072 
+    ulimit -s 131072
 
   On Windows, I need the following to increase a tiny (1 MiB??) stack size limit...
     g++ -O3 -std=c++11 "-Wl,--stack,16777216" boxesCounting.cpp
@@ -41,10 +41,10 @@
   Technical ideas to speed things up...
    - Since now counting boxes are a thing, consider limiting the non-initial pruning???
    - Should I make sums[] smaller since some counting boxes can never be "reactivated" after counting?
-   - Use an array of pointers to std::array so that only a small part of the array can be deep copied.
+   - Use an array of pointers to std::array so that only a small part of the sums 
+     array can be deep copied.
      This slows things down for small boxNumAll, but, if larger,
      data structures are quite huge and should probably be on the heap anyway?
-   - Make boxes[] global like in boxes.cpp
 */
 
 
@@ -70,6 +70,7 @@ bool increaseNeeded;
   uint16_t is only about 2 percent slower
 
   not greater than 14 while nType is uint16_t
+  not greater than 16 while possType is uint16_t
 */
 
 const uint8_t boxNumAll = 16;
@@ -124,17 +125,22 @@ const nType sumsLength = ( maxSteps>>6 ) + 1;
 uint64_t counts[boxNumAll] = {0};
 
 
-void printBoxes( std::vector<nType>* boxes[boxNumAll] ) {
+
+std::vector<nType> boxes[boxNumAll];       // array of empty vectors
+
+
+
+void printBoxes() {
 
     std::cout << "[";
 
     for (int j=0; j<boxNumAll; j++) {
       std::cout << '[';
 
-      for (int i=0; i < (int)(*boxes[j]).size() - 1; i++)
-        std::cout << (*boxes[j])[i] << ",";
-      if ( (*boxes[j]).size() )
-        std::cout << (*boxes[j])[(*boxes[j]).size()-1];
+      for (int i=0; i < (int)boxes[j].size() - 1; i++)
+        std::cout << boxes[j][i] << ",";
+      if ( boxes[j].size() )
+        std::cout << boxes[j][boxes[j].size()-1];
 
       if (j < boxNumAll-1)
         std::cout << "], ";
@@ -154,7 +160,7 @@ inline uint32_t firstAllowed(uint32_t countStart) {
 
 
 
-
+// updates sums and possibilities when doing a subsequent fill
 void subsequentFill(uint64_t sumsNew[sumsLength], possType possibilitiesNew[maxSteps+1], nType n0, nType len, possType mask) {
 
     for (nType n = n0; n < n0+len; n++) {
@@ -168,6 +174,7 @@ void subsequentFill(uint64_t sumsNew[sumsLength], possType possibilitiesNew[maxS
         if (j <= maxSteps)
           possibilitiesNew[j] &= mask;  // remove from possibilities
 
+        // these should probably be passed in as function parameters
         uint64_t nmod = ((uint64_t)n << 58) >> 58;   // 64 - 6 = 58
         nType ndiv = n >> 6;
 
@@ -205,7 +212,7 @@ endloops:
 
 // the recursive function
 
-void step(possType possibilities[maxSteps+1], uint64_t sums[boxNumAll][sumsLength], std::vector<nType>* boxes[boxNumAll], nType n, uint8_t boxNum, bool isCountingStill[boxNumAll]) {
+void step(possType possibilities[maxSteps+1], uint64_t sums[boxNumAll][sumsLength], nType n, uint8_t boxNum, bool isCountingStill[boxNumAll]) {
 
   // prune sooner rather than later
   for (int i = n+1; i < best+1; i++)    // change best+2 to best+1 to get ALL best solutions
@@ -222,7 +229,7 @@ void step(possType possibilities[maxSteps+1], uint64_t sums[boxNumAll][sumsLengt
   if (temp >= best && !possibilities[n]) {     // change > to >= to get ALL best solutions
     best = temp;
     std::cout << temp << '\n';
-    printBoxes(boxes);
+    printBoxes();
     std::cout << "\n\n" << std::flush;
     return;
   }
@@ -233,7 +240,7 @@ void step(possType possibilities[maxSteps+1], uint64_t sums[boxNumAll][sumsLengt
   if (temp <= 9) {
     std::time_t timeNow = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
     std::cout << temp << "   " << ctime(&timeNow);
-    printBoxes(boxes);
+    printBoxes();
     std::cout << "\n\n" << std::flush;
   }
 */
@@ -256,7 +263,6 @@ void step(possType possibilities[maxSteps+1], uint64_t sums[boxNumAll][sumsLengt
       uint32_t n2 = (uint32_t)n << 1;
 
       // declare
-      std::vector<nType>* boxesNew[boxNumAll];
       uint64_t sumsNew[boxNumAll][sumsLength];
       possType possibilitiesNew[maxSteps+1];
 
@@ -290,7 +296,7 @@ void step(possType possibilities[maxSteps+1], uint64_t sums[boxNumAll][sumsLengt
       if (isCountingStill[box]) {
 
         // to speed things up, prune initial identical steps
-        if ( !(*boxes[box]).size() ) {  // is this check necessary??
+        if ( !boxes[box].size() ) {  // is this check necessary??
           if (putInEmptyCountingBox) {
             possibilities[n] -= mask0;
             continue;
@@ -304,19 +310,11 @@ void step(possType possibilities[maxSteps+1], uint64_t sums[boxNumAll][sumsLengt
           continue;
         }
 
-        // shallow copy boxes[]
-        for (int i=0; i<boxNumAll; i++)
-          boxesNew[i] = boxes[i];
-
-        // deep copy only the parts of boxes[] that will be changed
-        boxesNew[box] = new std::vector<nType>;
-        (*boxesNew[box]) = (*boxes[box]);
-
-        // add to boxesNew[]
+        // add to boxes[]
         // Only put in starting box, zero, and ending box
-        (*boxesNew[box]).emplace_back(n);
-        (*boxesNew[box]).emplace_back(0);
-        (*boxesNew[box]).emplace_back(n2 - 1);
+        boxes[box].emplace_back(n);
+        boxes[box].emplace_back(0);
+        boxes[box].emplace_back(n2 - 1);
 
 
         counts[box]++;
@@ -371,7 +369,7 @@ void step(possType possibilities[maxSteps+1], uint64_t sums[boxNumAll][sumsLengt
             sumsNew[boxNum][temp2 >> 6] |= ((uint64_t) 1 << (temp2 & 0b111111));   // firstAllowed + 2*n is a sum
 
 
-          step(possibilitiesNew, sumsNew, boxesNew, n2, boxNum+1, isCountingStillNew);
+          step(possibilitiesNew, sumsNew, n2, boxNum+1, isCountingStillNew);
 
         } else {
 
@@ -379,9 +377,11 @@ void step(possType possibilities[maxSteps+1], uint64_t sums[boxNumAll][sumsLengt
           for (int i=n2; i<maxSteps+1; i++)
             possibilitiesNew[i] = possibilities[i] & mask;
 
-          step(possibilitiesNew, sums, boxesNew, n2, boxNum, isCountingStill);
+          step(possibilitiesNew, sums, n2, boxNum, isCountingStill);
         }
 
+        // put boxes[box] back the way it was
+        boxes[box].resize( boxes[box].size() - 3 );
 
 
       ///////////////////////////////////////
@@ -392,7 +392,7 @@ void step(possType possibilities[maxSteps+1], uint64_t sums[boxNumAll][sumsLengt
       //    comment out from here to the else
       } else if (isCounting[box]) {   // handle subsequent counting boxes
 
-        nType len = (*boxes[box])[0];
+        nType len = boxes[box][0];
 
         // look ahead len steps to see if a subsequent box is even possible
         bool stop = false;
@@ -412,18 +412,10 @@ void step(possType possibilities[maxSteps+1], uint64_t sums[boxNumAll][sumsLengt
         }
 
 
-        // shallow copy boxes[]
-        for (int i=0; i<boxNumAll; i++)
-          boxesNew[i] = boxes[i];
-
-        // deep copy only the parts of boxes[] that will be changed
-        boxesNew[box] = new std::vector<nType>;
-        (*boxesNew[box]) = (*boxes[box]);
-
-        // update boxesNew[]
-        (*boxesNew[box]).emplace_back(n);
-        (*boxesNew[box]).emplace_back(0);
-        (*boxesNew[box]).emplace_back(n+len-1);
+        // update boxes[]
+        boxes[box].emplace_back(n);
+        boxes[box].emplace_back(0);
+        boxes[box].emplace_back(n+len-1);
 
 
         // deep copy sums[] up to boxNum
@@ -438,7 +430,10 @@ void step(possType possibilities[maxSteps+1], uint64_t sums[boxNumAll][sumsLengt
         // update sumsNew[box][] and possibilitiesNew[]
         subsequentFill(sumsNew[box], possibilitiesNew, n, len, ~mask0);
 
-        step(possibilitiesNew, sumsNew, boxesNew, n+len, boxNum, isCountingStill);
+        step(possibilitiesNew, sumsNew, n+len, boxNum, isCountingStill);
+
+        // put boxes[box] back the way it was
+        boxes[box].resize( boxes[box].size() - 3 );
 
 
 
@@ -449,7 +444,7 @@ void step(possType possibilities[maxSteps+1], uint64_t sums[boxNumAll][sumsLengt
       } else {
 
         // to speed things up, prune initial identical steps
-        if ( !(*boxes[box]).size() ) {
+        if ( !boxes[box].size() ) {
           if (putInEmptyBox) {
             possibilities[n] -= mask0;
             continue;
@@ -457,14 +452,6 @@ void step(possType possibilities[maxSteps+1], uint64_t sums[boxNumAll][sumsLengt
           putInEmptyBox = true;
         }
 
-
-        // shallow copy boxes[]
-        for (int i=0; i<boxNumAll; i++)
-          boxesNew[i] = boxes[i];
-
-        // deep copy only the parts of boxes[] that will be changed
-        boxesNew[box] = new std::vector<nType>;
-        (*boxesNew[box]) = (*boxes[box]);
 
         // deep copy sums[] up to boxNum
         for (int i=0; i<boxNum; i++)
@@ -508,17 +495,17 @@ void step(possType possibilities[maxSteps+1], uint64_t sums[boxNumAll][sumsLengt
 endloops:
 
         // place n
-        (*boxesNew[box]).emplace_back(n);
+        boxes[box].emplace_back(n);
         sumsNew[box][n >> 6] |= ((uint64_t) 1 << (n & 0b111111));
 
-        step(possibilitiesNew, sumsNew, boxesNew, n+1, boxNum, isCountingStill);
+        step(possibilitiesNew, sumsNew, n+1, boxNum, isCountingStill);
+
+        // remove n
+        boxes[box].pop_back();
 
       }
 
 
-
-      // clean up
-      delete boxesNew[box];
 
       possibilities[n] -= mask0;  // so that the while loop progresses
 
@@ -573,17 +560,13 @@ int main() {
     for (int j=0; j<sumsLength; j++)
       sums[i][j] = 0;
 
-  // Pointers are used to allow for shallow copying instead of deep copying.
-  std::vector<nType>* boxes[boxNumAll];       // array of pointers to empty vectors
-  for (int i=0; i<boxNumAll; i++)  boxes[i] = new std::vector<nType>;
-
 
 
   // start timer
   std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
 
   // do it
-  step(possibilities, sums, boxes, 1, boxNum0, isCounting);
+  step(possibilities, sums, 1, boxNum0, isCounting);
 
   // stop timer
   long long duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count();
@@ -596,9 +579,6 @@ int main() {
     std::cout << " " << counts[i];
   std::cout << "\n  time for " << static_cast<unsigned>(boxNumAll) << " boxes is " << duration_ms << " ms\n" << std::flush;
   if (increaseNeeded)   std::cout << "  increase maxSteps!!\n" << std::flush;
-
-  // clean up
-  for (int i=0; i<boxNumAll; i++) delete boxes[i];
 
 
   return 0;
