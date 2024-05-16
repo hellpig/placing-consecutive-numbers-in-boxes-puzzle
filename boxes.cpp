@@ -76,6 +76,10 @@ const uint16_t sumsLength = ( maxSteps>>6 ) + 1;
 
 uint8_t boxes[maxSteps + 1];  // faster using int instead?
 
+// bit mask for updating the "final" 64-bit chunk of sums[box]
+//   to remove out-of-bounds bits
+const uint64_t sumsMask = (~((uint64_t)0)) >> (63 - (maxSteps & 63));
+
 
 
 // I decided to print the current best each time a new best is found
@@ -234,8 +238,8 @@ void step(uint8_t possibilities[maxSteps+1], uint64_t sums[boxNum][sumsLength], 
 */
 
   // for updating sums[], assuming that it is uint64_t
-  uint64_t nmod = ((uint64_t)n << 58) >> 58;   // 64 - 6 = 58
-  int ndiv = n >> 6;
+  int nmod = n & 63;   // n%64
+  int ndiv = n >> 6;   // n/64
 
   // try to place n in each box
   while(possibilities[n]) {
@@ -262,34 +266,44 @@ void step(uint8_t possibilities[maxSteps+1], uint64_t sums[boxNum][sumsLength], 
       if (j <= maxSteps)
         possibilitiesNew[j] &= mask;  // remove from possibilities
 
-      // remove sums from possibilitiesNew and update sumsNew
-      for (int i = 0; i < sumsLength; i++) {
-        uint64_t temp = sums[box][i]; // temp represents 64 possible sums
+      // NEWsums are the new sums, meaning the values in sumsNew that aren't also in sums...
+      //   NEWsums = sumsNew & ~sums
+      // Though this is not exactly the way the following "magic" code does it.
+      uint64_t NEWsums[sumsLength];
 
-        // Basically, bit shift sums[] by n to get the new sums.
-        // Tricky since sums[] is uint64_t, so sums come in groups of 64
-        if (i + ndiv < sumsLength)
-          sumsNew[box][i + ndiv] |= (temp << nmod);
-        if (i + ndiv + 1 < sumsLength)
-          sumsNew[box][i + ndiv + 1] |= (temp >> (64 - nmod));
+      // magic happens!
+      // The goal is to find NEWsums using bitshifts of sums[],
+      //   keeping in mind that sums[] comes in chunks of 64 bits,
+      //   so each original chunk can affect 2 chunks.
+      // Note that NEWsums[i] where i < ndiv is never stored or accessed.
+      // Note that &63 is %64, which is needed to prevent undefined behavior.
+      NEWsums[ndiv] = (sums[box][0] << nmod) & (~sums[box][ndiv]);
+      for (int i = ndiv + 1; i < sumsLength; i++) {
+        NEWsums[i] = ((sums[box][i - ndiv] << nmod) |
+                      (sums[box][i - ndiv - 1] >> ((64 - nmod) & 63))) &
+                     (~sums[box][i]);
+      }
 
-        // update possibilitiesNew[]
+      // necessary to prevent possibilitiesNew being written to out of bounds
+      NEWsums[sumsLength - 1] &= sumsMask;
+
+      // updating possibilitiesNew by removing NEWsums
+      for (int i = ndiv; i < sumsLength; i++) {
+        uint64_t temp = NEWsums[i]; // temp represents 64 possible sums
         while (temp) {
-          int k = __builtin_ctzll( temp );    // count trailing zeros
-          uint16_t j = k + (i << 6) + n;      // k + (i<<6) is the sum being added to
-          if (j > maxSteps)
-            goto endloops;
-          possibilitiesNew[j] &= mask;        // remove from possibilities[]
-          //sumsNew[box][j >> 6] |= ((uint64_t)1 << (j & 0b111111));    // add to sumsNew[]
+          int k = __builtin_ctzll(temp);          // count trailing zeros
+          possibilitiesNew[k + (i << 6)] &= mask; // remove from possibilities[]
           temp -= ((uint64_t)1 << k);
         }
       }
 
-endloops:
+      // update sumsNew by adding NEWsums
+      NEWsums[ndiv] |= ((uint64_t)1 << nmod);   // add n to NEWsums
+      for (int i = ndiv; i < sumsLength; i++)
+        sumsNew[box][i] |= NEWsums[i];
 
       // place n
       boxes[n] = box;
-      sumsNew[box][n >> 6] |= ((uint64_t) 1 << (n & 0b111111));
 
 /*
       // useful for boxNum=3 to map out the recursion tree

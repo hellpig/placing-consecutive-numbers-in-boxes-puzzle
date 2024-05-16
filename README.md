@@ -16,7 +16,7 @@ I thank [Nacho-Meter-Stick](https://github.com/Nacho-Meter-Stick) because he did
 * wrote the first (very slow) Python code that inspired me to write mine
 * found various ways of greatly optimizing the data structures after I wrote mine
 * simplified the firstAllowed proof
-* made various optimizations for speed
+* made various optimizations for speed, such as using the NEWsums array in boxes.cpp (boxesCounting.cpp has a simpler algorithm for the sole reason that it is more simple to understand)
 
 
 
@@ -298,7 +298,7 @@ The patterns formed when printing the boxes in which the integers are placed are
 4 boxes: 010212202011333333333333310202212011
 5 boxes: 0102122020113333333333333102022120114444444444444444444444444444444444444
 ```
-If *boxNum* is less than 4, the result is perfectly symmetric. If *boxNum* equals 4, it is *almost* symmetric. Is this anything meaningful?
+If *boxNum* is less than 4, the result is perfectly symmetric. If *boxNum* equals 4, it is *almost* symmetric. Is this anything useful?
 
 What other interesting patterns can you find? What if you changed Rule \#1 or Rule \#2? Maybe some patterns will be useful for solving this placing-consecutive-numbers-in-boxes puzzle?
 
