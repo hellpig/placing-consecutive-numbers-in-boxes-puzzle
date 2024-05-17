@@ -175,8 +175,8 @@ void subsequentFill(uint64_t sumsNew[sumsLength], possType possibilitiesNew[maxS
           possibilitiesNew[j] &= mask;  // remove from possibilities
 
         // these should probably be passed in as function parameters
-        uint64_t nmod = ((uint64_t)n << 58) >> 58;   // 64 - 6 = 58
-        nType ndiv = n >> 6;
+        int nmod = n & 63;   // n%64
+        nType ndiv = n >> 6; // n/64
 
         // remove sums from possibilitiesNew and update sumsNew
         for (int i=0; i<sumsLength; i++) {         // i represents 64 possible sums
@@ -186,7 +186,8 @@ void subsequentFill(uint64_t sumsNew[sumsLength], possType possibilitiesNew[maxS
           // Tricky since sums[] is uint64_t, so sums come in groups of 64
           if (i + ndiv < sumsLength)
             sumsNew[i + ndiv] |= (temp << nmod);
-          if (i + ndiv + 1 < sumsLength)
+          if (i + ndiv + 1 < sumsLength  && nmod)
+          // nmod=0 needs to handled separately to prevent annoyingly-undefined behavior of right bitshift, hence the &&nmod
             sumsNew[i + ndiv + 1] |= (temp >> (64 - nmod));
 
           while(temp) {
@@ -203,7 +204,7 @@ void subsequentFill(uint64_t sumsNew[sumsLength], possType possibilitiesNew[maxS
 endloops:
 
         // place n
-        sumsNew[n >> 6] |= ((uint64_t) 1 << (n & 0b111111));
+        sumsNew[ndiv] |= ((uint64_t) 1 << nmod);
 
     }
 
@@ -250,8 +251,8 @@ void step(possType possibilities[maxSteps+1], uint64_t sums[boxNumAll][sumsLengt
   bool putInEmptyCountingBox = false;  // has a previous empty counting box had n put inside?
 
   // for updating sums[], assuming that it is uint64_t
-  uint64_t nmod = ((uint64_t)n << 58) >> 58;   // 64 - 6 = 58
-  nType ndiv = n >> 6;
+  int nmod = n & 63;   // n%64
+  nType ndiv = n >> 6; // n/64
 
   // try to place n in each box
   while(possibilities[n]) {
@@ -478,7 +479,8 @@ void step(possType possibilities[maxSteps+1], uint64_t sums[boxNumAll][sumsLengt
           // Tricky since sums[] is uint64_t, so sums come in groups of 64
           if (i + ndiv < sumsLength)
             sumsNew[box][i + ndiv] |= (temp << nmod);
-          if (i + ndiv + 1 < sumsLength)
+          if (i + ndiv + 1 < sumsLength  && nmod)
+          // nmod=0 needs to handled separately to prevent annoyingly-undefined behavior of right bitshift, hence the &&nmod
             sumsNew[box][i + ndiv + 1] |= (temp >> (64 - nmod));
 
           while(temp) {
@@ -496,7 +498,7 @@ endloops:
 
         // place n
         boxes[box].emplace_back(n);
-        sumsNew[box][n >> 6] |= ((uint64_t) 1 << (n & 0b111111));
+        sumsNew[box][ndiv] |= ((uint64_t) 1 << nmod);
 
         step(possibilitiesNew, sumsNew, n+1, boxNum, isCountingStill);
 
