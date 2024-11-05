@@ -5,12 +5,10 @@ A colleague of mine teaches math and gave her AP Calculus BC students a fun opti
 * Rule \#1: no number in a box can be the sum of any set of other numbers in the box
 * Rule \#2: no number in a box can be the double of any other number in the box
 
-This problem reminds me of the Collatz conjecture made into a game, but with more complex rules. Like the Collatz conjecture, you can modify the rules to make new puzzles. Modifying my code to handle these new rules shouldn't be extremely difficult.
+You can modify these rules to make new puzzles. Modifying my code to handle these new rules shouldn't be extremely difficult.
 
-My colleague got the puzzle from a friend, and I cannot find a similar puzzle, but it feels to be a mixture of the following and other things...
-* [https://en.wikipedia.org/wiki/Bin_packing_problem](https://en.wikipedia.org/wiki/Bin_packing_problem)
-* [https://math.stackexchange.com/questions/570428/prison-problem-locking-or-unlocking-every-nth-door-for-n-1-2-3](https://math.stackexchange.com/questions/570428/prison-problem-locking-or-unlocking-every-nth-door-for-n-1-2-3)
-* [https://en.wikipedia.org/wiki/Multiway_number_partitioning](https://en.wikipedia.org/wiki/Multiway_number_partitioning)
+This puzzle is similar to finding Schur numbers. The puzzles are identical if my puzzle's sums are limited to being any *pair* of numbers in the box.  
+[https://youtu.be/nfynJIb5tyg](https://youtu.be/nfynJIb5tyg)
 
 I thank [Nacho-Meter-Stick](https://github.com/Nacho-Meter-Stick) because he did a large portion of the work...
 * wrote the first (very slow) Python code that inspired me to write mine
@@ -300,7 +298,7 @@ The patterns formed when printing the boxes in which the integers are placed are
 ```
 If *boxNum* is less than 4, the result is perfectly symmetric. If *boxNum* equals 4, it is *almost* symmetric. Is this anything useful?
 
-What other interesting patterns can you find? What if you changed Rule \#1 or Rule \#2? Maybe some patterns will be useful for solving this placing-consecutive-numbers-in-boxes puzzle?
+Are there more interesting patterns? What if you changed Rule \#1 or Rule \#2? Maybe some patterns will be useful for solving this placing-consecutive-numbers-in-boxes puzzle?
 
 
 
