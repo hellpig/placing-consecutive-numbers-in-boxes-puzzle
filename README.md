@@ -15,6 +15,7 @@ I thank [Nacho-Meter-Stick](https://github.com/Nacho-Meter-Stick) because he did
 * found various ways of greatly optimizing the data structures after I wrote mine
 * simplified the firstAllowed proof
 * made various optimizations for speed, such as using the NEWsums array in boxes.cpp (boxesCounting.cpp has a simpler algorithm for the sole reason that it is more simple to understand)
+* led the progress on attempt to run 6 boxes
 
 
 
@@ -283,6 +284,17 @@ The optimal countStart values can change as *boxNum* changes. For 8 boxes, the b
 ```
 Note that the 156 and 325 are not the same countStart values as with other number of boxes.
 
+
+
+# Next steps: try to run 6 boxes
+
+Code for the following is not provided here.
+
+Counting boxes may not find the best solution, or, if it does find a best solution, it may not find all best solutions. A simple Python code that checks to see if a box is still valid after adding each number that appears in other boxes can reveal that there are 7 solutions for 156, rather than the 3 listed above. The 1st of the 3 solutions can instead have 132 placed in a non-counting box. The 2nd of the 3 solutions can instead have 135 placed in a non-counting box. The 3rd of the 3 solutions can instead either have 131 or 132 placed in a non-counting box.
+
+The hope is to find strategies of the following type: place numbers in a box whenever placing the numbers does not affect remaining possibilities or affect sums that could affect these possibilities. Unlike counting boxes, the only solutions that strategies like this lose can be recovered by the same method used to find the 7 solutions from the 3. The idea is to get an exponential speedup by reducing branching. However, from experimental tests on fewer than 6 boxes, the most basic form of this strategy only gets used when placing the final numbers, but perhaps more complex forms can be very useful.
+
+To speed things up exponentially, we can also use a search strategy that does not place the numbers sequentially. The best way (found experimentally) is to place numbers that have the fewest possible boxes first (ties are broken by the lowest number). This does the easy parts of the search space first so that the hard parts are easier by the time they are started. This exponential speedup also helps less than 6 boxes. When doing this strategy and placing a number, you not only have to double all the numbers, but you have to halve the even ones. You not only have to think about updating sums, but you have to reduce probabilities[] by what could now add to one of those sums. Since we are placing numbers out of order, a max number needs to be set beforehand. The idea is to run with a max of 156 because that is the max that boxesCounting.cpp gives. Then, take all the resulting solutions (including any solutions lost but recovered) and see if 157 can be placed (the same Python code that recovers solutions can be used to try to place 157 in each of the boxes).
 
 
 
