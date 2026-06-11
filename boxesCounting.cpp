@@ -4,7 +4,7 @@
   This code lets you assume that final box(es) are counting boxes!
   A counting box will be [countStart, countStart + 1, ..., 2*countStart - 1]
   The code will represent this as [countStart, 0, 2*countStart - 1]
-  Note that, if using countStart=37 for the first counting box (and for the 5th box),
+  Note that, if using countStart=37 for the first counting box (the 5th box),
     you can actually use 13 then 37 because there is only one way to get to 36,
     and it has a 13-25 counting box.
     Then, for the next box, it must be a counting box with countStart=2*37.
