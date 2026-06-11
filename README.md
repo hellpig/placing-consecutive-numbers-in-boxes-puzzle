@@ -15,7 +15,7 @@ I thank [Nacho-Meter-Stick](https://github.com/Nacho-Meter-Stick) because he did
 * found various ways of greatly optimizing the data structures after I wrote mine
 * simplified the firstAllowed proof
 * made various optimizations for speed, such as using the NEWsums array in boxes.cpp (boxesCounting.cpp has a simpler algorithm for the sole reason that it is more simple to understand)
-* led the progress on attempt to run 6 boxes
+* led the progress on the attempt to run 6 boxes
 
 
 
@@ -46,7 +46,7 @@ There is a second equivalent optimal solution...
  [2, 3, 11, 12]
  [5, 6, 8, 9]
 ```
-There are more trivial optimal solution found by shuffling the boxes, so I am only writing the ones where the first number in each box is in increasing order. A better way to think of this is to imagine the boxes as being a set (in the mathematical and Pythonic sense), not having an order.
+There are more trivial optimal solutions found by shuffling the boxes, so I am only writing the ones where the first number in each box is in increasing order. A better way to think of this is to imagine the boxes as being a set (in the mathematical and Pythonic sense), not having an order.
 
 Four boxes is an interesting problem to do with code. The rare advanced high school student could probably write some Python code that would take many minutes of runtime (probably an hour). Using my boxes.cpp and much less than one second of runtime, the single optimal solution for 4 boxes is found to give 36...
 ```
@@ -79,7 +79,7 @@ Using these 66 states as command-line arguments, I employed 66 CPU cores (on 8 c
 ```
 We can notice that the first four boxes are filled as if they were the only 4 boxes. Because the solution with 4 boxes, after placing 36, had 86 be the next number that could be placed, I was pretty confident that the above would be the best solution, but now this 73 has been proven to be the unique best! In hindsight, I should have started running it in the printing-repeats mode, but also initializing *best* to 73 because 73 could obviously be obtained by just adding a counting box starting at 37.
 
-I obtained my wonderful runtimes by using pruning and efficient data structures. Pruning is removing branches of the recursion tree as early as possible, which can exponentially speed up the code at the cost of a linear slowdown. Good data structures can combined speed up the code by a factor of more than 100 times!
+I obtained my wonderful runtimes by using pruning and efficient data structures. Pruning is removing branches of the recursion tree as early as possible, which can exponentially speed up the code at the cost of a linear slowdown. Good data structures can combine to speed up the code by a factor of more than 100 times!
 
 I do two types of pruning: initial and non-initial.
 * The initial pruning makes sure that "shuffling the boxes" never occurs so that trivially repeated solutions do not appear. Basically, when trying to place a number in a box, the code does not allow that number to be placed in more than one empty box by having the recursive function return after the first empty box.
@@ -111,7 +111,9 @@ Clearly, *maxSteps* does not need to be this large since 73 is the best for 5 bo
 
 For 6 boxes, boxes.cpp takes almost a minute for progress to be made at a recursion depth of 36. This will take at least 2^36 minutes, which is over 100,000 years on a single CPU core. We need a better way! That way is having the code handle counting boxes differently.
 
-6 boxes can be run using boxesCounting.cpp in much less than an hour if the final two boxes are assumed to be counting boxes whose minimum countStart is 27...
+Certain boxes are marked as counting boxes. These boxes are not searched normally. The first time a counting box is used, the code forces it to receive the full interval from n to 2n-1. By default, later additions to that box are also forced to be maximal consecutive intervals, though this later-fill shortcut can be disabled in the code. These are intentional search assumptions, so this code can miss valid solutions that do not have the assumed counting-box structure.
+
+6 boxes can be run with boxesCounting.cpp in much less than an hour if the final two boxes are assumed to be counting boxes whose minimum countStart is 27...
 ```
 bool isCounting[boxNumAll]         = {false, false, false, false, true, true};
 const uint32_t minStart[boxNumAll] = {    0,     0,     0,     0,   27,    0};
@@ -219,7 +221,7 @@ If the following gap size is 1 or less, you can keep sequentially excluding numb
 ```
 For i=1, we get a gap size of 2, which corresponds to  2\*countStart, which is always excluded by the doubling rule. We now have to prove that all larger i values have gaps less than 2 until the i where firstAllowed occurs.
 Setting  gapSize(i)  equal to 2 gives two solutions: i = 1 and i = countStart - 2
-The derivative of  gapSize(i)  at i = 1 is  3 - countStart, which is negative for countStart > 4, so we can keep excluding above  2\*countStart  until i = countStart - 2.
+The derivative of  gapSize(i)  at i = 1 is  3 - countStart, which is negative for countStart > 4, so we can keep excluding above  2\*countStart  until i = countStart - 2. That is, the graph of gapSize vs. i is an upward facing parabola.
 For  i = countStart - 2, we can calculate sumEnd(i)
 ```
    sumEnd(countStart - 2) = (4 countStart - (countStart - 2) - 1) (countStart - 2)/2
@@ -236,11 +238,11 @@ because firstAllowed is 1 more than the lower bound of a gap of 2, we have prove
 ```
 This is only true for countStart > 4 else firstAllowed can be excluded by the doubling rule (for example, for countStart=4, the formula gives firstAllowed=14, but that can be excluded by 2\*7).
 
-After firstAllowed, there is consecutive band of allowed numbers of length countStart-1.
+After firstAllowed, there is a consecutive band of allowed numbers of length countStart-1.
 This exists immediately below finalExcluded.
 Immediately above finalExcluded, you can place a consecutive band of numbers of length countStart.
 
-For more than 6 boxes, the best I have found are...
+Time for the results of this new code! For more than 6 boxes, the best I have found are...
 ```
 boxes  __best found__
  7        328
@@ -254,7 +256,7 @@ boxes  __best found__
  15       87483
  16       175340
 ```
-As the number of boxes increases, my certainty that it is the actual best decreases.
+As the number of boxes increases, my confidence that these are optimal decreases.
 
 One of the solutions for 16 boxes that gives 175340 has the following form for its final boxes...
 ```
@@ -286,15 +288,17 @@ Note that the 156 and 325 are not the same countStart values as with other numbe
 
 
 
-# Next steps: try to run 6 boxes
+# next steps: try to run 6 boxes
 
 Code for the following is not provided here.
 
-Counting boxes may not find the best solution, or, if it does find a best solution, it may not find all best solutions. A simple Python code that checks to see if a box is still valid after adding each number that appears in other boxes can reveal that there are 7 solutions for 156, rather than the 3 listed above. The 1st of the 3 solutions can instead have 132 placed in a non-counting box. The 2nd of the 3 solutions can instead have 135 placed in a non-counting box. The 3rd of the 3 solutions can instead either have 131 or 132 placed in a non-counting box.
+Counting boxes may not find the best solution, or, if it does find a best solution, it may not find all best solutions. A simple Python code that checks to see if a box is still valid after adding each number that appears in other boxes can reveal that there are at least 7 solutions for 156, rather than the 3 listed above. The 1st of the 3 solutions can instead have 132 placed in a non-counting box. The 2nd of the 3 solutions can instead have 135 placed in a non-counting box. The 3rd of the 3 solutions can instead either have 131 or 132 placed in a non-counting box.
 
-We now consider strategies of the following type: place numbers in a box whenever placing the numbers does not affect remaining possibilities or affect sums that could affect these possibilities. Unlike counting boxes, the only solutions that strategies like this lose can be recovered by the same method used to find the 7 solutions from the 3. The idea is to get an exponential speedup by reducing branching. However, from experimental tests on fewer than 6 boxes, the most basic form of this strategy (that is, only looking at the effects of placing *single* boxes) only gets used when placing the final numbers. When comparing which non-optimal solutions (for example, all solutions that place 12 numbers for 3 boxes) are found by the most basic form of this strategy to the list of all solutions, only rarely does the most basic form of this strategy not remove branches that could be removed.
+We now consider strategies of the following type: if placing a number in a certain box does not change any remaining possibilities, and does not change any sums that could later affect remaining possibilities, then the code may place that number without branching. The hope is to reduce branching without losing meaningful solutions. In favorable cases, any solutions skipped by this kind of forced placement may be recoverable afterward by the same method used to expand the 3 listed solutions for 6 boxes into 7 solutions. However, this recovery claim depends on the exact strategy used, so it should be treated as a search heuristic unless separately proven. Experimental tests on fewer than 6 boxes were not very encouraging for the most basic version of this idea, which only checks the effect of placing a single number. This basic strategy usually only becomes useful near the final numbers of a solution. When comparing the non-optimal solutions found by this strategy, such as all 3-box solutions that place 12 numbers, to the complete list of solutions, the strategy only rarely removes branches that could safely have been removed. A stronger version would probably need to reason about groups of placements or use a different search order.
 
-To speed things up exponentially, we can also (or instead) use a search strategy that does not place the numbers sequentially. The best way (found experimentally) is to place numbers that have the fewest possible boxes first (ties are broken by the lowest number). This does the easy parts of the search space first so that the hard parts are easier by the time they are started. This exponential speedup also helps less than 6 boxes. When doing this strategy and placing a number, you not only have to double all the numbers, but you have to halve the even ones. You not only have to think about updating sums, but you have to reduce probabilities[] by what could now add to one of those sums. Since we are placing numbers out of order, a max number needs to be set beforehand. The idea is to run with a max number of 156 because that is the max that boxesCounting.cpp gives. Then, take all the resulting solutions (including any solutions lost but recovered) and see if 157 can be placed (the same Python code that recovers solutions can be used to try to place 157 in each of the boxes).
+To speed things up exponentially, we can instead use a search strategy that does not place the numbers sequentially. The best way (found experimentally) is to place numbers that have the fewest possible boxes first (ties are broken by the lowest number). This does the easy parts of the search space first so that the hard parts are easier by the time they are started. This exponential speedup also helps less than 6 boxes. When doing this strategy and placing a number, you not only have to double all the numbers, but you have to halve the even ones. You not only have to think about updating sums, but you have to reduce possibilities[] by what could now add to one of those sums. Since we are placing numbers out of order, a max number needs to be set beforehand. The idea is to run with a max number of 156 because that is the max that boxesCounting.cpp gives. Then, take all the resulting solutions (including any solutions lost but recovered) and see if 157 can be placed (the same Python code that recovers solutions can be used to try to place 157 in each of the boxes).
+
+To run this across many cores on many computers, the search can be split into a large number of moderate-sized independent tasks. A practical way to do this is to create one small file for each task in a shared jobs folder. Each worker process repeatedly claims a task by moving one file from jobs to claimed, runs that task, writes its output to an output folder, and then moves the task file to done. This gives dynamic load balancing: faster cores or easier branches simply claim more tasks. Creating many more tasks than cores helps prevent the run from being dominated by a few unusually slow branches.
 
 
 

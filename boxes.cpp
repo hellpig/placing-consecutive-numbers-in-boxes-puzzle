@@ -15,6 +15,7 @@
   Using the command-line argument allows you to split up the task across many CPU cores.
   Make sure empty boxes aren't skipped. For example, 0,2,0,1 is not valid
     because placing in box 2 skipped box 1.
+    If you skip a box, no warning will be given, and you cannot trust the output of the code.
 
   To compile for deploying on any Windows machine, I did...
     x86_64-w64-mingw32-g++ -static -O3 -std=c++11 boxes.cpp
@@ -168,7 +169,7 @@ void initialize(uint8_t possibilities[maxSteps+1], uint64_t sums[boxNum][sumsLen
           if (j > maxSteps)
             goto endloops;
           possibilities[j] &= mask;         // remove from possibilities[]
-          sums[box][j >> 6] |= ((uint64_t) 1 << (j & 0b111111));  // add to sums[]
+          sums[box][j >> 6] |= ((uint64_t) 1 << (j & 63));  // add to sums[]
           temp -= ((uint64_t)1 << k);
         }
       }
@@ -177,7 +178,7 @@ endloops:
 
       // place n
       boxes[n] = box;
-      sums[box][n >> 6] |= ((uint64_t) 1 << (n & 0b111111));
+      sums[box][n >> 6] |= ((uint64_t) 1 << (n & 63));
 
       // update boxes[0]
       if (box == boxes[0])
@@ -322,7 +323,9 @@ void step(uint8_t possibilities[maxSteps+1], uint64_t sums[boxNum][sumsLength], 
 
 
       // To speed things up, prune initial identical steps.
-      // If box is empty, no need to continue placing n in subsequent empty boxes.
+      // If n is placed in the first unused box, then placing n in any later unused
+      // box would only rename boxes. Therefore, after searching this branch, return
+      // instead of trying later empty boxes.
       if (box == boxes[0]) {
         boxes[0] = box+1;
         step(possibilitiesNew, sumsNew, n+1);
@@ -366,7 +369,11 @@ int main(int argc, char* argv[]) {
 
 
 
-  best = 0;    // current best max steps found; increasing this here can speed up the code!
+  best = 0;    // current best max steps found
+  // best may be initialized to the value of a known valid solution to speed up
+  // the search. Do not initialize best above a known achievable value, or pruning
+  // may hide the true optimum.
+
   increaseNeeded = false;
 
 
@@ -403,7 +410,7 @@ int main(int argc, char* argv[]) {
 
   // print
   std::cout << "  time for " << static_cast<unsigned>(boxNum) << " boxes is " << duration_ms << " ms\n" << std::flush;
-  if (increaseNeeded)   std::cout << "  increase maxSteps!\n" << std::flush;
+  if (increaseNeeded)   std::cout << "  increase maxSteps! Current search bound was too small.\n" << std::flush;
 
 
 

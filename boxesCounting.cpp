@@ -4,16 +4,21 @@
   This code lets you assume that final box(es) are counting boxes!
   A counting box will be [countStart, countStart + 1, ..., 2*countStart - 1]
   The code will represent this as [countStart, 0, 2*countStart - 1]
-  Note that, if using countStart=37 as the first counting box,
+  Note that, if using countStart=37 for the first counting box (and for the 5th box),
     you can actually use 13 then 37 because there is only one way to get to 36,
     and it has a 13-25 counting box.
     Then, for the next box, it must be a counting box with countStart=2*37.
     If RAM usage becomes an issue, consider starting by placing up to 74 by hand.
 
-  The code also assumes that subsequent filling of a counting box always occurs
-    boxes[box][0] numbers in a row. By commenting out a section of code, this
-    assumption can be turned off.
-    I have evidence that this assumption can lose repeated solutions.
+  By default, the code uses a shortcut for subsequent filling of counting boxes.
+    After a counting box receives its initial interval [start, 2*start - 1], later
+    additions to that box are forced to occur as one maximum consecutive interval.
+    This reduces branching, but it is an extra search assumption and can miss
+    valid/repeated solutions. This shortcut can be disabled by commenting out the
+       "Optional speed/structure assumption"
+    block inside step(). Disabling it keeps the initial
+    counting-box interval assumption, but searches later additions to counting
+    boxes normally.
 
 
   g++ -O3 -std=c++11 boxesCounting.cpp
@@ -82,9 +87,15 @@ const uint8_t boxNumAll = 16;
 
 /*
   Set counting boxes.
-  Set min starting value in the boxes, where later counting boxes get at least the min of any previous counting boxes.
+  Set min starting value in the boxes.
   The min of a non-counting box is ignored.
   Note that counting boxes will never start at n<5.
+
+  minStart[i] is the minimum allowed starting value for counting box i.
+  Counting boxes are ordered by their first starting value. Therefore, if an
+  earlier counting box has a minimum start value, all later counting boxes
+  inherit at least that same lower bound. This avoids duplicate searches that
+  differ only by swapping counting-box labels.
 */
 
 bool isCounting[boxNumAll]         = {false, false, false, true, true, true, true, true, true, true, true, true,  true,  true,  true, true};
@@ -98,6 +109,16 @@ const uint32_t minStart[boxNumAll] = {    0,     0,     0,   13,   37,    0,  15
   Note that it doesn't exactly pick up where you left off, and,
     especially for later boxes, will have to do some repeated calculation.
     To test the time for repeated calculations, set the maxStart below the minStart.
+
+  Counting boxes are opened in order. When n is used to start a new counting
+  box, the code only tries the lowest-index empty counting box that is still
+  possible for n. Later empty counting boxes are skipped because they would
+  only duplicate the same solution with counting-box labels swapped.
+  
+  maxStart[i] is interpreted under this ordering convention. If n is too large
+  to start the lowest possible empty counting box i, then n is not tried in
+  later empty counting boxes either. Thus maxStart is a search/order cutoff,
+  not an independent per-box permission check.
 */
 
 const nType max =  ~( (nType)0 );
@@ -196,7 +217,7 @@ void subsequentFill(uint64_t sumsNew[sumsLength], possType possibilitiesNew[maxS
             if (j > maxSteps)
               goto endloops;
             possibilitiesNew[j] &= mask;         // remove from possibilitiesNew[]
-            //sumsNew[j >> 6] |= ((uint64_t)1 << (j & 0b111111));  // add to sumsNew[]
+            //sumsNew[j >> 6] |= ((uint64_t)1 << (j & 63));  // add to sumsNew[]
             temp -= ((uint64_t)1 << k);
           }
         }
@@ -275,7 +296,7 @@ void step(possType possibilities[maxSteps+1], uint64_t sums[boxNumAll][sumsLengt
 */
 
 /*
-      // old way to enforce certain subsequent counting patterns
+      // old way to enforce certain filling patterns
       //if (n>=5391 && n<=5403 && box!=3) {
       if (n>=5390 && n<=5402 && box!=3) {
         possibilities[n] -= mask0;
@@ -362,12 +383,12 @@ void step(possType possibilities[maxSteps+1], uint64_t sums[boxNumAll][sumsLengt
           for (int i=n; i <= temp0+n; i++) {   // n through firstAllowed + n set as sums
             if (i > maxSteps)
               break;
-            sumsNew[boxNum][i >> 6] |= ((uint64_t) 1 << (i & 0b111111));
+            sumsNew[boxNum][i >> 6] |= ((uint64_t) 1 << (i & 63));
           }
-          sumsNew[boxNum][n2 >> 6]    &=  ~((uint64_t) 1 << (n2 & 0b111111));     // remove 2*n as a sum
-          sumsNew[boxNum][temp0 >> 6] &=  ~((uint64_t) 1 << (temp0 & 0b111111));  // remove firstAllowed as sum
+          sumsNew[boxNum][n2 >> 6]    &=  ~((uint64_t) 1 << (n2 & 63));     // remove 2*n as a sum
+          sumsNew[boxNum][temp0 >> 6] &=  ~((uint64_t) 1 << (temp0 & 63));  // remove firstAllowed as sum
           if (temp2 <= maxSteps)
-            sumsNew[boxNum][temp2 >> 6] |= ((uint64_t) 1 << (temp2 & 0b111111));   // firstAllowed + 2*n is a sum
+            sumsNew[boxNum][temp2 >> 6] |= ((uint64_t) 1 << (temp2 & 63));   // firstAllowed + 2*n is a sum
 
 
           step(possibilitiesNew, sumsNew, n2, boxNum+1, isCountingStillNew);
@@ -389,9 +410,26 @@ void step(possType possibilities[maxSteps+1], uint64_t sums[boxNumAll][sumsLengt
       ///////////////////////////////////////
       ///////////////////////////////////////
 
-      //  if you don't want to force how subsequent counting boxes are filled,
-      //    comment out from here to the else
-      } else if (isCounting[box]) {   // handle subsequent counting boxes
+      // Optional speed/structure assumption:
+      //
+      // If this block is enabled, then once a counting box has already received its
+      // initial interval [start, 2*start - 1], any later use of that box is forced to
+      // add the next maximum consecutive interval in one step. This greatly reduces
+      // branching, but it can miss valid/repeated solutions whose later additions to
+      // the counting box are not exactly this forced interval.
+      //
+      // To search later additions to counting boxes normally, disable this entire
+      // else-if block, from
+      //
+      //     } else if (isCounting[box]) {
+      //
+      // down to the matching
+      //
+      //     } else {
+      //
+      // below. The initial counting-box interval is still forced; only subsequent
+      // filling is no longer forced.
+      } else if (isCounting[box]) {   // handle subsequent filling of counting boxes
 
         nType len = boxes[box][0];
 
@@ -489,7 +527,7 @@ void step(possType possibilities[maxSteps+1], uint64_t sums[boxNumAll][sumsLengt
             if (j > maxSteps)
               goto endloops;
             possibilitiesNew[j] &= mask;         // remove from possibilitiesNew[]
-            //sumsNew[box][j >> 6] |= ((uint64_t)1 << (j & 0b111111));  // add to sumsNew[]
+            //sumsNew[box][j >> 6] |= ((uint64_t)1 << (j & 63));  // add to sumsNew[]
             temp -= ((uint64_t)1 << k);
           }
         }
