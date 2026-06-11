@@ -54,7 +54,7 @@ bool increaseNeeded;
 
 
 
-const uint8_t boxNum = 5;
+const uint8_t boxNum = 4;
 // not greater than 8 while possibilities is uint8_t
 // not greater than 10 while argv[1] processing only looks for single-digit arguments
 //
@@ -299,7 +299,7 @@ void step(uint8_t possibilities[maxSteps+1], uint64_t sums[boxNum][sumsLength], 
         while (temp) {
           int k = __builtin_ctzll(temp);          // count trailing zeros
           possibilitiesNew[k + (i << 6)] &= mask; // remove from possibilities[]
-          temp -= ((uint64_t)1 << k);
+          temp &= temp - 1;   // remove the lowest set bit, where   temp -= ((uint64_t)1 << k)   is same thing
         }
       }
 
